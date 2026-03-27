@@ -25,7 +25,7 @@ interface Request {
   total_cost: number
   expected_delivery_time: string | null
   created_at: string
-  shopkeeper: { name: string | null; phone_number: string; shop_location: string | null }
+  shopkeeper: { name: string | null; email: string | null; shop_location: string | null }
   items: { id: number; name: string; quantity: number; unit_cost: number; line_total: number }[]
 }
 
@@ -74,22 +74,18 @@ export default function TransporterDashboard() {
     }
   }, [profile, authLoading, router])
 
-  useEffect(() => {
-    if (profile?.role === 'transporter') {
-      fetchData()
-    }
-  }, [profile])
-
-  const fetchData = async () => {
+  const loadData = async () => {
+    if (!profile || profile.role !== 'transporter') return
+    
     setLoading(true)
     const [requestsRes, inventoryRes] = await Promise.all([
-      supabase.from('requests').select('*, shopkeeper:profiles(name, phone_number, shop_location), items:request_items(item_id, quantity, unit_cost, line_total, inventory_items(name))').order('created_at', { ascending: false }),
+      supabase.from('requests').select('*, shopkeeper:profiles(name, email, shop_location), items:request_items(item_id, quantity, unit_cost, line_total, inventory_items(name))').order('created_at', { ascending: false }),
       supabase.from('inventory_items').select('*').order('name')
     ])
     
-    const formattedRequests = (requestsRes.data || []).map((r: any) => ({
+    const formattedRequests: Request[] = (requestsRes.data || []).map((r) => ({
       ...r,
-      items: r.items?.map((item: any) => ({
+      items: r.items?.map((item: { inventory_items?: { name: string } }) => ({
         ...item,
         name: item.inventory_items?.name
       })) || []
@@ -100,17 +96,14 @@ export default function TransporterDashboard() {
     setLoading(false)
   }
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData()
+  }, [profile])
+
   const updateStatus = async (requestId: number, newStatus: string) => {
     await supabase.from('requests').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', requestId)
-    
-    const request = requests.find(r => r.id === requestId)
-    if (request) {
-      await supabase.functions.invoke('send-sms', {
-        body: { to: request.shopkeeper.phone_number, message: `Request #${requestId} status: ${newStatus}` }
-      })
-    }
-    
-    fetchData()
+    loadData()
   }
 
   const updateInventory = async (itemId: number, newQuantity: number) => {
@@ -119,7 +112,7 @@ export default function TransporterDashboard() {
       updated_by: profile?.id,
       updated_at: new Date().toISOString() 
     }).eq('id', itemId)
-    fetchData()
+    loadData()
   }
 
   const handleSignOut = async () => {
@@ -172,7 +165,7 @@ export default function TransporterDashboard() {
               </button>
               <div className="text-right">
                 <p className="text-sm font-medium text-white">{profile.name || 'Transporter'}</p>
-                <p className="text-xs text-blue-100">{profile.phone_number}</p>
+                <p className="text-xs text-blue-100">{profile.email}</p>
               </div>
               <button 
                 onClick={handleSignOut}
@@ -296,7 +289,7 @@ export default function TransporterDashboard() {
                           <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
                             <span className="flex items-center gap-1">
                               <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                              {request.shopkeeper.name || request.shopkeeper.phone_number}
+                              {request.shopkeeper.name || request.shopkeeper.email}
                             </span>
                             {request.shopkeeper.shop_location && (
                               <span className="flex items-center gap-1">
@@ -418,7 +411,7 @@ export default function TransporterDashboard() {
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">Request #{selectedRequest.id}</h2>
-                  <p className="text-gray-500">{selectedRequest.shopkeeper.name || selectedRequest.shopkeeper.phone_number}</p>
+                  <p className="text-gray-500">{selectedRequest.shopkeeper.name || selectedRequest.shopkeeper.email}</p>
                   <p className="text-sm text-gray-400">{selectedRequest.shopkeeper.shop_location}</p>
                 </div>
                 <button 

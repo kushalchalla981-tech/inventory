@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ComponentType } from 'react'
 import { supabase } from '@/lib/supabase'
 import { 
   ArrowRightOnRectangleIcon, 
@@ -39,7 +39,7 @@ interface CartItem {
   quantity: number
 }
 
-const statusConfig: Record<string, { color: string; bg: string; icon: any }> = {
+const statusConfig: Record<string, { color: string; bg: string; icon: ComponentType<{ className?: string }> }> = {
   'Placed': { color: 'text-blue-700', bg: 'bg-blue-50', icon: ClipboardDocumentListIcon },
   'Received': { color: 'text-purple-700', bg: 'bg-purple-50', icon: CubeIcon },
   'Reviewed': { color: 'text-indigo-700', bg: 'bg-indigo-50', icon: CheckCircleIcon },
@@ -51,7 +51,7 @@ const statusConfig: Record<string, { color: string; bg: string; icon: any }> = {
 }
 
 export default function ShopkeeperDashboard() {
-  const { profile, loading: authLoading, signOut, user } = useAuth()
+  const { profile, loading: authLoading, signOut } = useAuth()
   const router = useRouter()
   const [requests, setRequests] = useState<Request[]>([])
   const [inventory, setInventory] = useState<InventoryItem[]>([])
@@ -66,22 +66,18 @@ export default function ShopkeeperDashboard() {
     }
   }, [profile, authLoading, router])
 
-  useEffect(() => {
-    if (profile?.role === 'shopkeeper') {
-      fetchData()
-    }
-  }, [profile])
-
-  const fetchData = async () => {
+  const loadData = async () => {
+    if (!profile || profile.role !== 'shopkeeper') return
+    
     setLoading(true)
     const [requestsRes, inventoryRes] = await Promise.all([
-      supabase.from('requests').select('*, items:request_items(item_id, quantity, unit_cost, line_total, inventory_items(name))').eq('shopkeeper_id', profile?.id).order('created_at', { ascending: false }),
+      supabase.from('requests').select('*, items:request_items(item_id, quantity, unit_cost, line_total, inventory_items(name))').eq('shopkeeper_id', profile.id).order('created_at', { ascending: false }),
       supabase.from('inventory_items').select('*').order('name')
     ])
     
-    const formattedRequests = (requestsRes.data || []).map((r: any) => ({
+    const formattedRequests: Request[] = (requestsRes.data || []).map((r) => ({
       ...r,
-      items: r.items?.map((item: any) => ({
+      items: r.items?.map((item: { inventory_items?: { name: string } }) => ({
         ...item,
         name: item.inventory_items?.name
       })) || []
@@ -91,6 +87,11 @@ export default function ShopkeeperDashboard() {
     setInventory(inventoryRes.data || [])
     setLoading(false)
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData()
+  }, [profile])
 
   const addToCart = (item: InventoryItem) => {
     const existing = cart.find(c => c.item.id === item.id)
@@ -139,16 +140,9 @@ export default function ShopkeeperDashboard() {
 
     await supabase.from('request_items').insert(requestItems)
 
-    await supabase.functions.invoke('send-sms', {
-      body: { 
-        to: profile?.phone_number, 
-        message: `Your request #${requestData.id} has been placed. Total: ₹${cartTotal}` 
-      }
-    })
-
     setCart([])
     setShowCreateModal(false)
-    fetchData()
+    loadData()
   }
 
   const handleSignOut = async () => {
@@ -190,7 +184,7 @@ export default function ShopkeeperDashboard() {
             <div className="flex items-center space-x-4">
               <div className="text-right">
                 <p className="text-sm font-medium text-white">{profile.name || 'Shopkeeper'}</p>
-                <p className="text-xs text-green-100">{profile.phone_number}</p>
+                <p className="text-xs text-green-100">{profile.email}</p>
               </div>
               <button 
                 onClick={handleSignOut}

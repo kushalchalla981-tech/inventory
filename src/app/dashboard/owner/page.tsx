@@ -15,18 +15,17 @@ import {
   CheckCircleIcon,
   ClockIcon,
   ChartBarIcon,
-  PlusIcon,
   TrashIcon,
   PencilIcon,
   XMarkIcon,
-  UserPlusIcon,
-  PhoneIcon
+  EnvelopeIcon
 } from '@heroicons/react/24/outline'
 
 interface Profile {
   id: string
   name: string | null
-  phone_number: string
+  email: string | null
+  phone_number: string | null
   role: 'owner' | 'transporter' | 'shopkeeper'
   shop_location: string | null
 }
@@ -36,7 +35,7 @@ interface Request {
   status: string
   total_cost: number
   created_at: string
-  shopkeeper: { name: string | null; phone_number: string }
+  shopkeeper: { name: string | null; email: string | null }
 }
 
 interface InventoryItem {
@@ -61,7 +60,8 @@ export default function OwnerDashboard() {
   const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [showUserModal, setShowUserModal] = useState(false)
-  const [newUser, setNewUser] = useState({ name: '', phone: '', role: 'shopkeeper', shopLocation: '' })
+  const [editingUser, setEditingUser] = useState<Profile | null>(null)
+  const [userForm, setUserForm] = useState({ role: 'shopkeeper', shopLocation: '' })
   const [activeTab, setActiveTab] = useState<'overview' | 'users'>('overview')
 
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function OwnerDashboard() {
   const fetchData = async () => {
     setLoading(true)
     const [requestsRes, inventoryRes, usersRes] = await Promise.all([
-      supabase.from('requests').select('*, shopkeeper:profiles(name, phone_number)').order('created_at', { ascending: false }).limit(20),
+      supabase.from('requests').select('*, shopkeeper:profiles(name, email)').order('created_at', { ascending: false }).limit(20),
       supabase.from('inventory_items').select('*').order('name'),
       supabase.from('profiles').select('*').order('created_at', { ascending: false })
     ])
@@ -94,42 +94,44 @@ export default function OwnerDashboard() {
     router.push('/login')
   }
 
-  const createUser = async () => {
-    if (!newUser.phone || !newUser.role) return
+  const updateUserRole = async () => {
+    if (!editingUser) return
     
     try {
-      const { error } = await supabase.functions.invoke('verify-otp', {
-        body: { 
-          action: 'create-user',
-          newPhone: newUser.phone,
-          name: newUser.name,
-          role: newUser.role,
-          shopLocation: newUser.shopLocation
-        }
-      })
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: userForm.role, shop_location: userForm.shopLocation })
+        .eq('id', editingUser.id)
       
       if (error) throw error
-      
       setShowUserModal(false)
-      setNewUser({ name: '', phone: '', role: 'shopkeeper', shopLocation: '' })
+      setEditingUser(null)
+      setUserForm({ role: 'shopkeeper', shopLocation: '' })
       fetchData()
-    } catch (err: any) {
-      alert(err.message || 'Failed to create user')
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to update user')
     }
+  }
+
+  const openEditModal = (user: Profile) => {
+    setEditingUser(user)
+    setUserForm({ role: user.role, shopLocation: user.shop_location || '' })
+    setShowUserModal(true)
   }
 
   const deleteUser = async (userId: string) => {
     if (!confirm('Are you sure you want to delete this user?')) return
     
     try {
-      const { error } = await supabase.functions.invoke('verify-otp', {
-        body: { action: 'delete-user', userId }
-      })
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId)
       
       if (error) throw error
       fetchData()
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete user')
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to delete user')
     }
   }
 
@@ -177,7 +179,7 @@ export default function OwnerDashboard() {
             <div className="flex items-center space-x-4">
               <div className="text-right">
                 <p className="text-sm font-medium text-white">{profile.name || 'Owner'}</p>
-                <p className="text-xs text-purple-100">{profile.phone_number}</p>
+                <p className="text-xs text-purple-100">{profile.email}</p>
               </div>
               <button 
                 onClick={handleSignOut}
@@ -300,7 +302,7 @@ export default function OwnerDashboard() {
                                   {request.status}
                                 </span>
                               </div>
-                              <p className="text-sm text-gray-500">{request.shopkeeper?.name || request.shopkeeper?.phone_number || 'Unknown'}</p>
+                              <p className="text-sm text-gray-500">{request.shopkeeper?.name || request.shopkeeper?.email || 'Unknown'}</p>
                             </div>
                             <div className="text-right">
                               <p className="font-bold text-gray-900">₹{request.total_cost.toLocaleString()}</p>
@@ -383,15 +385,9 @@ export default function OwnerDashboard() {
 
         {activeTab === 'users' && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+            <div className="p-6 border-b border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900">User Management</h2>
-              <button
-                onClick={() => setShowUserModal(true)}
-                className="bg-purple-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-purple-700 transition-colors flex items-center gap-2"
-              >
-                <UserPlusIcon className="h-5 w-5" />
-                Add User
-              </button>
+              <p className="text-sm text-gray-500 mt-1">Users sign up via Google. Edit their role and location here.</p>
             </div>
             <div className="p-6">
               {/* Stats */}
@@ -441,13 +437,8 @@ export default function OwnerDashboard() {
                   <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <UserGroupIcon className="h-8 w-8 text-gray-400" />
                   </div>
-                  <p className="text-gray-500 mb-4">No users yet</p>
-                  <button
-                    onClick={() => setShowUserModal(true)}
-                    className="text-purple-600 hover:underline font-medium"
-                  >
-                    Add First User
-                  </button>
+                  <p className="text-gray-500">No users have signed up yet.</p>
+                  <p className="text-sm text-gray-400 mt-2">Users can sign up via the login page using Google.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -455,7 +446,7 @@ export default function OwnerDashboard() {
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Name</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Phone</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Email</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Role</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Location</th>
                         <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Actions</th>
@@ -469,8 +460,8 @@ export default function OwnerDashboard() {
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
-                              <PhoneIcon className="h-4 w-4 text-gray-400" />
-                              <span className="text-gray-700">{user.phone_number}</span>
+                              <EnvelopeIcon className="h-4 w-4 text-gray-400" />
+                              <span className="text-gray-700">{user.email || '-'}</span>
                             </div>
                           </td>
                           <td className="py-3 px-4">
@@ -487,12 +478,20 @@ export default function OwnerDashboard() {
                           </td>
                           <td className="py-3 px-4 text-right">
                             {user.role !== 'owner' && (
-                              <button
-                                onClick={() => deleteUser(user.id)}
-                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                              >
-                                <TrashIcon className="h-5 w-5" />
-                              </button>
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => openEditModal(user)}
+                                  className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                                >
+                                  <PencilIcon className="h-5 w-5" />
+                                </button>
+                                <button
+                                  onClick={() => deleteUser(user.id)}
+                                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                  <TrashIcon className="h-5 w-5" />
+                                </button>
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -506,14 +505,14 @@ export default function OwnerDashboard() {
         )}
       </main>
 
-      {/* Add User Modal */}
-      {showUserModal && (
+      {/* Edit User Modal */}
+      {showUserModal && editingUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">Add New User</h2>
+              <h2 className="text-xl font-bold text-gray-900">Edit User</h2>
               <button 
-                onClick={() => setShowUserModal(false)} 
+                onClick={() => { setShowUserModal(false); setEditingUser(null) }} 
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <XMarkIcon className="h-5 w-5 text-gray-500" />
@@ -521,30 +520,18 @@ export default function OwnerDashboard() {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-                <input
-                  type="tel"
-                  placeholder="+91 9113048711"
-                  value={newUser.phone}
-                  onChange={(e) => setNewUser({ ...newUser, phone: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <p className="text-gray-900 font-medium">{editingUser.name || '-'}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                <input
-                  type="text"
-                  placeholder="Enter name"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <p className="text-gray-900">{editingUser.email || '-'}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
                 <select
-                  value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                  value={userForm.role}
+                  onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
                   <option value="shopkeeper">Shopkeeper</option>
@@ -552,23 +539,22 @@ export default function OwnerDashboard() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Shop Location</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Shop/Location</label>
                 <input
                   type="text"
-                  placeholder="Enter location (optional)"
-                  value={newUser.shopLocation}
-                  onChange={(e) => setNewUser({ ...newUser, shopLocation: e.target.value })}
+                  placeholder="Enter location"
+                  value={userForm.shopLocation}
+                  onChange={(e) => setUserForm({ ...userForm, shopLocation: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>
             </div>
             <div className="p-6 border-t border-gray-100 bg-gray-50">
               <button
-                onClick={createUser}
-                disabled={!newUser.phone}
-                className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition-colors disabled:bg-gray-300"
+                onClick={updateUserRole}
+                className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition-colors"
               >
-                Create User
+                Update User
               </button>
             </div>
           </div>
