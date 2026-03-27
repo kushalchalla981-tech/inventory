@@ -103,7 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const sendOTP = async (phone: string) => {
-    const formattedPhone = formatPhoneNumber(phone)
+    // Add +91 prefix for India
+    const formattedPhone = phone.startsWith('+') ? phone : '+91' + phone
     console.log('Sending OTP to:', formattedPhone)
     
     try {
@@ -129,7 +130,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const verifyOTP = async (phone: string, code: string) => {
-    const formattedPhone = formatPhoneNumber(phone)
+    // Add +91 prefix for India
+    const formattedPhone = phone.startsWith('+') ? phone : '+91' + phone
     console.log('Verifying OTP for:', formattedPhone)
     
     try {

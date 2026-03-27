@@ -26,14 +26,16 @@ export default function LoginPage() {
   }, [resendTimer])
 
   const handleSendOTP = async () => {
-    if (!phone || phone.length < 10) {
-      setError('Please enter a valid phone number')
+    // Only allow digits, max 10
+    const digitsOnly = phone.replace(/\D/g, '')
+    if (digitsOnly.length !== 10) {
+      setError('Please enter 10-digit phone number')
       return
     }
     setLoading(true)
     setError('')
     try {
-      await sendOTP(phone)
+      await sendOTP(digitsOnly)
       setStep('otp')
       setResendTimer(30)
     } catch (err: any) {
@@ -166,16 +168,17 @@ export default function LoginPage() {
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <PhoneIcon className="h-5 w-5 text-gray-400" />
                     </div>
-                    <input
+                  <input
                       type="tel"
-                      placeholder="+91 9113048711"
+                      inputMode="numeric"
+                      placeholder="9113048711"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                       onKeyDown={handleKeyPress}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-base"
                     />
                   </div>
-                  <p className="text-xs text-gray-400 mt-1.5">Enter with country code (e.g., +91)</p>
+                  <p className="text-xs text-gray-400 mt-1.5">Enter 10-digit number (e.g., 9113048711)</p>
                 </div>
                 <button
                   onClick={handleSendOTP}
