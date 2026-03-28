@@ -26,7 +26,7 @@ interface Profile {
   name: string | null
   email: string | null
   phone_number: string | null
-  role: 'owner' | 'transporter' | 'shopkeeper'
+  role: 'owner' | 'transporter' | 'shopkeeper' | 'pending'
   shop_location: string | null
 }
 
@@ -62,7 +62,10 @@ export default function OwnerDashboard() {
   const [showUserModal, setShowUserModal] = useState(false)
   const [editingUser, setEditingUser] = useState<Profile | null>(null)
   const [userForm, setUserForm] = useState({ role: 'shopkeeper', shopLocation: '' })
-  const [activeTab, setActiveTab] = useState<'overview' | 'users'>('overview')
+  const [allowedUsers, setAllowedUsers] = useState<{ id: string; email: string; role: string; shop_location: string | null }[]>([])
+  const [showAllowedUserModal, setShowAllowedUserModal] = useState(false)
+  const [allowedUserForm, setAllowedUserForm] = useState({ email: '', role: 'shopkeeper', shopLocation: '' })
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'access'>('overview')
 
   useEffect(() => {
     if (!authLoading && (!profile || profile.role !== 'owner')) {
@@ -78,15 +81,55 @@ export default function OwnerDashboard() {
 
   const fetchData = async () => {
     setLoading(true)
-    const [requestsRes, inventoryRes, usersRes] = await Promise.all([
+    const [requestsRes, inventoryRes, usersRes, allowedUsersRes] = await Promise.all([
       supabase.from('requests').select('*, shopkeeper:profiles(name, email)').order('created_at', { ascending: false }).limit(20),
       supabase.from('inventory_items').select('*').order('name'),
-      supabase.from('profiles').select('*').order('created_at', { ascending: false })
+      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+      supabase.from('allowed_users').select('*').order('created_at', { ascending: false })
     ])
     setRequests(requestsRes.data || [])
     setInventory(inventoryRes.data || [])
     setUsers(usersRes.data || [])
+    setAllowedUsers(allowedUsersRes.data || [])
     setLoading(false)
+  }
+
+  const addAllowedUser = async () => {
+    if (!allowedUserForm.email) return
+
+    try {
+      const { error } = await supabase
+        .from('allowed_users')
+        .insert([{
+          email: allowedUserForm.email,
+          role: allowedUserForm.role,
+          shop_location: allowedUserForm.shopLocation,
+          created_by: profile?.id
+        }])
+
+      if (error) throw error
+      setShowAllowedUserModal(false)
+      setAllowedUserForm({ email: '', role: 'shopkeeper', shopLocation: '' })
+      fetchData()
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to add allowed user. Make sure the email is unique.')
+    }
+  }
+
+  const deleteAllowedUser = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this email from the allowed list?')) return
+
+    try {
+      const { error } = await supabase
+        .from('allowed_users')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+      fetchData()
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to remove user')
+    }
   }
 
   const handleSignOut = async () => {
@@ -214,7 +257,17 @@ export default function OwnerDashboard() {
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              User Management
+              Registered Users
+            </button>
+            <button
+              onClick={() => setActiveTab('access')}
+              className={`py-4 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'access'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Pre-Authorize Access
             </button>
           </div>
         </div>
@@ -384,10 +437,10 @@ export default function OwnerDashboard() {
         )}
 
         {activeTab === 'users' && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="p-6 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900">User Management</h2>
-              <p className="text-sm text-gray-500 mt-1">Users sign up via Google. Edit their role and location here.</p>
+              <h2 className="text-lg font-semibold text-gray-900">Registered Users</h2>
+              <p className="text-sm text-gray-500 mt-1">Users who have already signed in. Edit their role and location here.</p>
             </div>
             <div className="p-6">
               {/* Stats */}
@@ -468,6 +521,7 @@ export default function OwnerDashboard() {
                             <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
                               user.role === 'owner' ? 'bg-purple-100 text-purple-700' :
                               user.role === 'transporter' ? 'bg-orange-100 text-orange-700' :
+                              user.role === 'pending' ? 'bg-red-100 text-red-700' :
                               'bg-green-100 text-green-700'
                             }`}>
                               {user.role}
@@ -503,7 +557,138 @@ export default function OwnerDashboard() {
             </div>
           </div>
         )}
+
+        {activeTab === 'access' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Pre-Authorize Access</h2>
+                <p className="text-sm text-gray-500 mt-1">Add emails of people who are allowed to log in and use the system.</p>
+              </div>
+              <button
+                onClick={() => setShowAllowedUserModal(true)}
+                className="bg-purple-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-purple-700 transition-colors shadow-sm"
+              >
+                + Add Email
+              </button>
+            </div>
+            <div className="p-6">
+              {loading ? (
+                <div className="animate-pulse space-y-4">
+                  {[1,2,3].map(i => <div key={i} className="h-16 bg-gray-100 rounded-xl"></div>)}
+                </div>
+              ) : allowedUsers.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <EnvelopeIcon className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <p className="text-gray-500">No emails have been pre-authorized yet.</p>
+                  <p className="text-sm text-gray-400 mt-2">Add emails to grant access to transporters and shopkeepers.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Email</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Default Role</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Default Location</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allowedUsers.map(user => (
+                        <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-3 px-4">
+                            <span className="text-gray-900 font-medium">{user.email}</span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
+                              user.role === 'transporter' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+                            }`}>
+                              {user.role}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-gray-500">
+                            {user.shop_location || '-'}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              onClick={() => deleteAllowedUser(user.id)}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            >
+                              <TrashIcon className="h-5 w-5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* Add Allowed User Modal */}
+      {showAllowedUserModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">Add Pre-Authorized Email</h2>
+              <button
+                onClick={() => setShowAllowedUserModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <XMarkIcon className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                <input
+                  type="email"
+                  placeholder="user@example.com"
+                  value={allowedUserForm.email}
+                  onChange={(e) => setAllowedUserForm({ ...allowedUserForm, email: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Assign Role</label>
+                <select
+                  value={allowedUserForm.role}
+                  onChange={(e) => setAllowedUserForm({ ...allowedUserForm, role: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                >
+                  <option value="shopkeeper">Shopkeeper</option>
+                  <option value="transporter">Transporter</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Shop/Location (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="Enter location"
+                  value={allowedUserForm.shopLocation}
+                  onChange={(e) => setAllowedUserForm({ ...allowedUserForm, shopLocation: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
+            <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+              <button
+                onClick={addAllowedUser}
+                disabled={!allowedUserForm.email}
+                className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition-colors disabled:opacity-50 shadow-sm"
+              >
+                Add Email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit User Modal */}
       {showUserModal && editingUser && (
