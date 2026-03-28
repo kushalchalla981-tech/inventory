@@ -71,24 +71,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       let data = initialData
 
-      // If no profile, we need to handle new user signup logic
-      if (!data && (error?.code === 'PGRST116' || !error)) {
-        console.log('No profile found. Attempting to create one for:', authUserEmail);
+      // Detailed error logging for SELECT failure
+      if (error) {
+        console.error('Supabase SELECT Error Details:', JSON.stringify(error, null, 2));
+      }
+
+      // We handle PGRST116 (No rows found) or if data is just null without an error code
+      if (!data && (error?.code === 'PGRST116' || !error || error?.message?.includes('JSON object requested, multiple (or no) rows returned'))) {
+        console.log('No profile found in DB. Attempting to insert a new profile for:', authUserEmail);
+
         if (authUserEmail === 'kushalchalla981@gmail.com') {
-          // Designated owner
+          // Designated owner logic
+          console.log('Recognized Owner email. Inserting with role: owner');
           const { data: newProfile, error: insertError } = await supabase
             .from('profiles')
             .insert([{ id: userId, email: authUserEmail, role: 'owner' }])
             .select()
             .single()
+
           if (insertError) {
-            console.error('Failed to create owner profile:', insertError);
-            alert(`Setup Error: Failed to create your profile in the database. Please ensure your Supabase RLS policies allow authenticated users to INSERT into the 'profiles' table. Details: ${insertError.message}`);
+            console.error('Database INSERT Error Details (Owner):', JSON.stringify(insertError, null, 2));
+            alert(`Failed to create owner profile: ${insertError.message}. Check your Supabase database constraints and RLS policies.`);
             throw insertError;
           }
           data = newProfile
+          console.log('Successfully created Owner profile:', newProfile);
+
         } else if (authUserEmail) {
-          // Check if they are in the allowed_users table
+          // Standard user logic
           const { data: allowedUser, error: allowedUserError } = await supabase
             .from('allowed_users')
             .select('*')
@@ -99,29 +109,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
              console.error('Error checking allowed_users:', allowedUserError);
           }
 
-          console.log('Allowed user data:', allowedUser);
+          const assignedRole = allowedUser ? allowedUser.role : 'pending';
+          console.log(`User found in allowed_users: ${!!allowedUser}. Assigning role: ${assignedRole}`);
 
-          // Insert them into profiles with role from allowed_users or 'pending'
           const { data: newProfile, error: insertError } = await supabase
             .from('profiles')
             .insert([{
               id: userId,
               email: authUserEmail,
-              role: allowedUser ? allowedUser.role : 'pending',
+              role: assignedRole,
               shop_location: allowedUser ? allowedUser.shop_location : null
             }])
             .select()
             .single()
 
           if (insertError) {
-            console.error('Failed to create user profile:', insertError);
-            alert(`Setup Error: Failed to create your profile in the database. Please ensure your Supabase RLS policies allow authenticated users to INSERT into the 'profiles' table. Details: ${insertError.message}`);
+            console.error('Database INSERT Error Details (Standard User):', JSON.stringify(insertError, null, 2));
+            alert(`Failed to create user profile: ${insertError.message}. Check your Supabase constraints and RLS policies.`);
             throw insertError;
           }
           data = newProfile
+          console.log('Successfully created User profile:', newProfile);
         }
       } else if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching initial profile:', error);
+        console.error('Unexpected SELECT error:', error);
+        alert(`Database error fetching your profile: ${error.message}`);
         throw error
       }
 
@@ -135,10 +147,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile({ ...data, fcm_token: fcmToken } as Profile)
         }
       } else {
-        console.error('Data is still null after attempted creation.');
+        console.error('Profile data is still null. Insertion might have failed silently.');
       }
-    } catch (err) {
-      console.error('Error fetching/creating profile (Caught):', err)
+    } catch (err: unknown) {
+      console.error('Critical Error fetching/creating profile:', err)
+      if (err instanceof Error && err.message) {
+        alert(`A critical error occurred while logging you in: ${err.message}`);
+      } else if (typeof err === 'object' && err !== null && 'message' in err) {
+         alert(`A critical error occurred while logging you in: ${(err as {message: string}).message}`);
+      }
     } finally {
       setLoading(false)
     }
