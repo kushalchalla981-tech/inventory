@@ -22,6 +22,9 @@ export default function DashboardPage() {
         case 'shopkeeper':
           router.push('/dashboard/shopkeeper')
           break
+        case 'pending':
+          router.push('/unauthorized')
+          break
         default:
           router.push('/login')
       }

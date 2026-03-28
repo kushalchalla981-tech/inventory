@@ -89,9 +89,9 @@ export default function ShopkeeperDashboard() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData()
-  }, [profile])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, profile?.role])
 
   const addToCart = (item: InventoryItem) => {
     const existing = cart.find(c => c.item.id === item.id)
@@ -200,35 +200,35 @@ export default function ShopkeeperDashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:-translate-y-1 transition-transform duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Total Requests</p>
                 <p className="text-3xl font-bold text-gray-900 mt-1">{requests.length}</p>
               </div>
-              <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center shadow-inner">
                 <ClipboardDocumentListIcon className="h-7 w-7 text-green-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:-translate-y-1 transition-transform duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Pending</p>
                 <p className="text-3xl font-bold text-orange-600 mt-1">{pendingRequests}</p>
               </div>
-              <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center shadow-inner">
                 <ClockIcon className="h-7 w-7 text-orange-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:-translate-y-1 transition-transform duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Completed</p>
                 <p className="text-3xl font-bold text-green-600 mt-1">{completedRequests}</p>
               </div>
-              <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center shadow-inner">
                 <CheckCircleIcon className="h-7 w-7 text-green-600" />
               </div>
             </div>
@@ -236,7 +236,7 @@ export default function ShopkeeperDashboard() {
         </div>
 
         {/* Tabs & Content */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="border-b border-gray-100">
             <div className="flex">
               <button
@@ -269,7 +269,7 @@ export default function ShopkeeperDashboard() {
               <div className="pr-4 py-3">
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className="bg-green-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-green-700 transition-colors flex items-center gap-2"
+                  className="bg-green-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm hover:shadow-md active:scale-95"
                 >
                   <PlusIcon className="h-5 w-5" />
                   New Request
@@ -283,7 +283,18 @@ export default function ShopkeeperDashboard() {
               <div>
                 {loading ? (
                   <div className="animate-pulse space-y-4">
-                    {[1,2,3].map(i => <div key={i} className="h-24 bg-gray-100 rounded-xl"></div>)}
+                    {[1,2,3].map(i => (
+                      <div key={i} className="border border-gray-100 rounded-xl p-5 flex items-start justify-between">
+                        <div className="space-y-3 w-1/2">
+                          <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+                          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+                        </div>
+                        <div className="space-y-2 w-1/4 flex flex-col items-end">
+                          <div className="h-4 bg-gray-100 rounded w-full"></div>
+                          <div className="h-3 bg-gray-100 rounded w-1/2"></div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ) : requests.length === 0 ? (
                   <div className="text-center py-12">
@@ -300,15 +311,19 @@ export default function ShopkeeperDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {requests.map(request => {
+                    {requests.map((request, index) => {
                       const config = statusConfig[request.status] || statusConfig['Placed']
                       const Icon = config.icon
                       return (
-                        <div key={request.id} className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow">
+                        <div
+                          key={request.id}
+                          className="border border-gray-100 rounded-xl p-5 hover:shadow-lg transition-all duration-300 bg-white group"
+                          style={{ animationDelay: `${index * 50}ms` }}
+                        >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
-                                <h3 className="text-lg font-semibold text-gray-900">Request #{request.id}</h3>
+                                <h3 className="text-lg font-semibold text-gray-900 group-hover:text-green-600 transition-colors">Request #{request.id}</h3>
                                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${config.bg} ${config.color}`}>
                                   <Icon className="w-3.5 h-3.5" />
                                   {request.status}
@@ -330,7 +345,7 @@ export default function ShopkeeperDashboard() {
                                   year: 'numeric'
                                 })}
                               </p>
-                              <p className="text-xs text-gray-400 mt-1">{request.items?.length || 0} items</p>
+                              <p className="text-xs text-gray-400 mt-1 bg-gray-100 px-2 py-1 rounded-md inline-block">{request.items?.length || 0} items</p>
                             </div>
                           </div>
                         </div>
@@ -342,24 +357,30 @@ export default function ShopkeeperDashboard() {
             )}
 
             {activeTab === 'catalog' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {inventory.map(item => (
-                  <div key={item.id} className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between mb-3">
-                      <h3 className="font-semibold text-gray-900">{item.name}</h3>
-                      <span className={`text-xs px-2 py-1 rounded-full ${item.quantity_available > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                        {item.quantity_available > 0 ? `${item.quantity_available} available` : 'Out of stock'}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-300">
+                {inventory.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="border border-gray-100 rounded-xl p-5 hover:shadow-lg transition-all duration-300 bg-white flex flex-col"
+                    style={{ animationDelay: `${index * 30}ms` }}
+                  >
+                    <div className="flex items-start justify-between mb-3 flex-1">
+                      <h3 className="font-semibold text-gray-900 line-clamp-2 pr-2">{item.name}</h3>
+                      <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${item.quantity_available > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                        {item.quantity_available > 0 ? `${item.quantity_available} left` : 'Out of stock'}
                       </span>
                     </div>
-                    <p className="text-2xl font-bold text-gray-900 mb-4">₹{item.unit_cost}</p>
-                    <button
-                      onClick={() => addToCart(item)}
-                      disabled={item.quantity_available === 0}
-                      className="w-full bg-green-600 text-white py-2.5 rounded-xl font-medium hover:bg-green-700 transition-colors disabled:bg-gray-200 disabled:text-gray-500 flex items-center justify-center gap-2"
-                    >
-                      <ShoppingCartIcon className="w-5 h-5" />
-                      Add to Request
-                    </button>
+                    <div>
+                      <p className="text-2xl font-bold text-gray-900 mb-4">₹{item.unit_cost}</p>
+                      <button
+                        onClick={() => addToCart(item)}
+                        disabled={item.quantity_available === 0}
+                        className="w-full bg-green-600 text-white py-2.5 rounded-xl font-medium hover:bg-green-700 transition-colors disabled:bg-gray-200 disabled:text-gray-500 flex items-center justify-center gap-2 active:scale-95 shadow-sm hover:shadow"
+                      >
+                        <ShoppingCartIcon className="w-5 h-5" />
+                        Add to Request
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -386,8 +407,8 @@ export default function ShopkeeperDashboard() {
 
       {/* Create Request Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-gray-100">
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-900">Create New Request</h2>
@@ -409,42 +430,42 @@ export default function ShopkeeperDashboard() {
                   <p className="text-gray-500 mb-4">Your cart is empty</p>
                   <button
                     onClick={() => { setShowCreateModal(false); setActiveTab('catalog'); }}
-                    className="text-green-600 hover:underline font-medium"
+                    className="text-green-600 hover:underline font-medium hover:text-green-700 transition-colors"
                   >
                     Browse Catalog
                   </button>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {cart.map(c => (
-                    <div key={c.item.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">{c.item.name}</p>
+                  {cart.map((c, idx) => (
+                    <div key={c.item.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl animate-in fade-in slide-in-from-right-4 duration-300" style={{ animationDelay: `${idx * 50}ms` }}>
+                      <div className="flex-1 pr-4">
+                        <p className="font-medium text-gray-900 line-clamp-1">{c.item.name}</p>
                         <p className="text-sm text-gray-500">₹{c.item.unit_cost} × {c.quantity}</p>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 sm:gap-3">
                         <button
                           onClick={() => updateQuantity(c.item.id, c.quantity - 1)}
-                          className="w-8 h-8 rounded-full bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center"
+                          className="w-8 h-8 rounded-full bg-red-100 text-red-600 hover:bg-red-200 flex items-center justify-center transition-colors font-bold text-lg leading-none"
                         >
                           -
                         </button>
-                        <span className="w-8 text-center font-medium">{c.quantity}</span>
+                        <span className="w-6 sm:w-8 text-center font-medium">{c.quantity}</span>
                         <button
                           onClick={() => updateQuantity(c.item.id, c.quantity + 1)}
-                          className="w-8 h-8 rounded-full bg-green-100 text-green-600 hover:bg-green-200 flex items-center justify-center"
+                          className="w-8 h-8 rounded-full bg-green-100 text-green-600 hover:bg-green-200 flex items-center justify-center transition-colors font-bold text-lg leading-none"
                         >
                           +
                         </button>
                         <button
                           onClick={() => removeFromCart(c.item.id)}
-                          className="ml-2 p-1 text-gray-400 hover:text-red-500"
+                          className="ml-1 sm:ml-2 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <XMarkIcon className="w-5 h-5" />
                         </button>
                       </div>
-                      <div className="ml-4 font-bold text-gray-900 w-24 text-right">
-                        ₹{c.item.unit_cost * c.quantity}
+                      <div className="ml-2 sm:ml-4 font-bold text-gray-900 w-20 sm:w-24 text-right">
+                        ₹{(c.item.unit_cost * c.quantity).toLocaleString()}
                       </div>
                     </div>
                   ))}
@@ -454,13 +475,13 @@ export default function ShopkeeperDashboard() {
 
             {cart.length > 0 && (
               <div className="p-6 border-t border-gray-100 bg-gray-50">
-                <div className="flex justify-between text-xl font-bold mb-4">
-                  <span>Total</span>
-                  <span className="text-green-600">₹{cartTotal.toLocaleString()}</span>
+                <div className="flex justify-between items-center text-xl font-bold mb-4">
+                  <span className="text-gray-900">Total</span>
+                  <span className="text-green-600 text-2xl">₹{cartTotal.toLocaleString()}</span>
                 </div>
                 <button
                   onClick={createRequest}
-                  className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition-colors"
+                  className="w-full bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition-all duration-200 shadow-sm hover:shadow-md active:scale-95 text-lg"
                 >
                   Submit Request
                 </button>
