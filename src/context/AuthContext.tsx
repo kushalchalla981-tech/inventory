@@ -73,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // If no profile, we need to handle new user signup logic
       if (!data && (error?.code === 'PGRST116' || !error)) {
+        console.log('No profile found. Attempting to create one for:', authUserEmail);
         if (authUserEmail === 'kushalchalla981@gmail.com') {
           // Designated owner
           const { data: newProfile, error: insertError } = await supabase
@@ -80,15 +81,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .insert([{ id: userId, email: authUserEmail, role: 'owner' }])
             .select()
             .single()
-          if (insertError) throw insertError
+          if (insertError) {
+            console.error('Failed to create owner profile:', insertError);
+            alert(`Setup Error: Failed to create your profile in the database. Please ensure your Supabase RLS policies allow authenticated users to INSERT into the 'profiles' table. Details: ${insertError.message}`);
+            throw insertError;
+          }
           data = newProfile
         } else if (authUserEmail) {
           // Check if they are in the allowed_users table
-          const { data: allowedUser } = await supabase
+          const { data: allowedUser, error: allowedUserError } = await supabase
             .from('allowed_users')
             .select('*')
             .eq('email', authUserEmail)
             .single()
+
+          if (allowedUserError && allowedUserError.code !== 'PGRST116') {
+             console.error('Error checking allowed_users:', allowedUserError);
+          }
+
+          console.log('Allowed user data:', allowedUser);
 
           // Insert them into profiles with role from allowed_users or 'pending'
           const { data: newProfile, error: insertError } = await supabase
@@ -102,13 +113,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .select()
             .single()
 
-          if (insertError) throw insertError
+          if (insertError) {
+            console.error('Failed to create user profile:', insertError);
+            alert(`Setup Error: Failed to create your profile in the database. Please ensure your Supabase RLS policies allow authenticated users to INSERT into the 'profiles' table. Details: ${insertError.message}`);
+            throw insertError;
+          }
           data = newProfile
         }
       } else if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching initial profile:', error);
         throw error
       }
-      
+
       if (data) {
         setProfile(data as Profile)
         setUser({ id: userId, email: data.email } as User)
@@ -118,9 +134,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await supabase.from('profiles').update({ fcm_token: fcmToken }).eq('id', userId)
           setProfile({ ...data, fcm_token: fcmToken } as Profile)
         }
+      } else {
+        console.error('Data is still null after attempted creation.');
       }
     } catch (err) {
-      console.error('Error fetching/creating profile:', err)
+      console.error('Error fetching/creating profile (Caught):', err)
     } finally {
       setLoading(false)
     }

@@ -37,3 +37,38 @@ USING (true);
 -- ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check CHECK (role IN ('owner', 'transporter', 'shopkeeper', 'pending'));
 
 -- Note: In Supabase, often roles are just TEXT columns. If you used an ENUM or strict CHECK constraint in v1, you will need to update it to allow 'pending'.
+
+-- 5. IMPORTANT: Fix Row Level Security (RLS) for new users signing in via Google
+-- By default, Supabase RLS prevents authenticated users from inserting rows if a policy isn't explicitly defined.
+-- We must allow users who have just signed in via Google (and thus have an auth.uid())
+-- to insert their *own* record into the `profiles` table.
+
+-- Drop the policy if it already exists to prevent errors
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+
+-- Create policy to allow authenticated users to insert a row where the id matches their auth.uid()
+CREATE POLICY "Users can insert their own profile"
+ON public.profiles FOR INSERT
+WITH CHECK (auth.uid() = id);
+
+-- Ensure users can update their own profile (for FCM tokens, etc)
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+CREATE POLICY "Users can update own profile"
+ON public.profiles FOR UPDATE
+USING (auth.uid() = id);
+
+-- Ensure users can read their own profile
+DROP POLICY IF EXISTS "Users can read own profile" ON public.profiles;
+CREATE POLICY "Users can read own profile"
+ON public.profiles FOR SELECT
+USING (auth.uid() = id);
+
+-- We also need to ensure owners can read all profiles to manage them
+DROP POLICY IF EXISTS "Owners can view all profiles" ON public.profiles;
+CREATE POLICY "Owners can view all profiles"
+ON public.profiles FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'owner'
+  )
+);
