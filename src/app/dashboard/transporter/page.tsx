@@ -97,9 +97,9 @@ export default function TransporterDashboard() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData()
-  }, [profile])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, profile?.role])
 
   const updateStatus = async (requestId: number, newStatus: string) => {
     await supabase.from('requests').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', requestId)
@@ -181,46 +181,46 @@ export default function TransporterDashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:-translate-y-1 transition-transform duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Total Requests</p>
                 <p className="text-3xl font-bold text-gray-900 mt-1">{requests.length}</p>
               </div>
-              <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center shadow-inner">
                 <ClipboardDocumentListIcon className="h-7 w-7 text-blue-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:-translate-y-1 transition-transform duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Pending</p>
                 <p className="text-3xl font-bold text-orange-600 mt-1">{pendingCount}</p>
               </div>
-              <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center shadow-inner">
                 <ClockIcon className="h-7 w-7 text-orange-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:-translate-y-1 transition-transform duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Completed</p>
                 <p className="text-3xl font-bold text-green-600 mt-1">{completedCount}</p>
               </div>
-              <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center shadow-inner">
                 <CheckCircleIcon className="h-7 w-7 text-green-600" />
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:-translate-y-1 transition-transform duration-300">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Inventory Items</p>
                 <p className="text-3xl font-bold text-gray-900 mt-1">{inventory.length}</p>
               </div>
-              <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center shadow-inner">
                 <CubeIcon className="h-7 w-7 text-purple-600" />
               </div>
             </div>
@@ -228,7 +228,7 @@ export default function TransporterDashboard() {
         </div>
 
         {/* Filter Tabs */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="p-6 border-b border-gray-100">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-gray-900">All Requests ({pendingCount} pending)</h2>
@@ -263,7 +263,16 @@ export default function TransporterDashboard() {
           <div className="p-6">
             {loading ? (
               <div className="animate-pulse space-y-4">
-                {[1,2,3].map(i => <div key={i} className="h-28 bg-gray-100 rounded-xl"></div>)}
+                {[1,2,3].map(i => (
+                  <div key={i} className="border border-gray-100 rounded-xl p-5 flex items-start justify-between">
+                    <div className="space-y-3 w-1/2">
+                      <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+                      <div className="h-4 bg-gray-100 rounded w-2/3"></div>
+                      <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+                    </div>
+                    <div className="h-10 bg-gray-200 rounded w-24"></div>
+                  </div>
+                ))}
               </div>
             ) : filteredRequests.length === 0 ? (
               <div className="text-center py-12">
@@ -274,10 +283,14 @@ export default function TransporterDashboard() {
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredRequests.map(request => {
+                {filteredRequests.map((request, index) => {
                   const config = statusConfig[request.status] || statusConfig['Placed']
                   return (
-                    <div key={request.id} className="border border-gray-100 rounded-xl p-5 hover:shadow-md transition-shadow">
+                    <div
+                      key={request.id}
+                      className="border border-gray-100 rounded-xl p-5 hover:shadow-lg transition-all duration-300 bg-white"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
@@ -310,15 +323,15 @@ export default function TransporterDashboard() {
                           {NEXT_STATUS[request.status] && (
                             <button
                               onClick={() => updateStatus(request.id, NEXT_STATUS[request.status]!)}
-                              className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                              className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm hover:shadow-md active:scale-95"
                             >
                               <PencilSquareIcon className="w-4 h-4" />
-                              {NEXT_STATUS[request.status]}
+                              Mark {NEXT_STATUS[request.status]}
                             </button>
                           )}
                           <button
                             onClick={() => setSelectedRequest(request)}
-                            className="border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"
+                            className="border border-gray-200 text-gray-600 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 hover:shadow-sm"
                           >
                             <EyeIcon className="w-4 h-4" />
                             Details
@@ -361,8 +374,8 @@ export default function TransporterDashboard() {
 
       {/* Inventory Modal */}
       {showInventoryModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center">
               <h2 className="text-xl font-bold text-gray-900">Manage Inventory</h2>
               <button 
@@ -405,8 +418,8 @@ export default function TransporterDashboard() {
 
       {/* Request Details Modal */}
       {selectedRequest && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-gray-100">
               <div className="flex justify-between items-start">
                 <div>
