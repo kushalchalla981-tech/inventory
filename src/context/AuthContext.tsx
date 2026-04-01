@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async () => {
     const redirectUrl = process.env.NODE_ENV === 'production'
-      ? 'https://inventory-taupe-zeta.vercel.app/dashboard'
+      ? 'https://kushalchalla981-techs-projects-inventory.vercel.app/dashboard'
       : `${window.location.origin}/dashboard`
     
     const { error } = await supabase.auth.signInWithOAuth({
